@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skies — Weather Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --sky-day: linear-gradient(160deg, #0f2b4a 0%, #1a4a7a 40%, #2d6fa8 70%, #4d94c9 100%);
+    --sky-clear: linear-gradient(160deg, #0a1f3a 0%, #1a3f6e 50%, #2563a8 100%);
+    --sky-cloudy: linear-gradient(160deg, #2a2f3f 0%, #3d4558 50%, #545f78 100%);
+    --sky-rain: linear-gradient(160deg, #1a2030 0%, #252d42 50%, #303d58 100%);
+    --sky-snow: linear-gradient(160deg, #2a3040 0%, #3a4255 50%, #4a5570 100%);
+    --glass: rgba(255,255,255,0.07);
+    --glass-border: rgba(255,255,255,0.12);
+    --text-primary: rgba(255,255,255,0.95);
+    --text-secondary: rgba(255,255,255,0.55);
+    --accent: #60b8ff;
+    --card-radius: 20px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--sky-day);
+    min-height: 100vh;
+    color: var(--text-primary);
+    transition: background 0.8s ease;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Animated stars / particles */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 45% 5%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 85% 30%, rgba(255,255,255,0.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 15%, rgba(255,255,255,0.35) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.8rem;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .logo span { font-style: italic; color: var(--accent); }
+
+  /* Search bar */
+  .search-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .search-wrap {
+    position: relative;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  input[type="text"] {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 50px;
+    padding: 10px 18px 10px 40px;
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.2s, width 0.3s;
+  }
+
+  input[type="text"]::placeholder { color: var(--text-secondary); }
+  input[type="text"]:focus { border-color: var(--accent); width: 260px; }
+
+  .btn {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 50px;
+    padding: 10px 20px;
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0a1f3a; font-weight: 500; }
+  .btn.primary:hover { background: #7ac9ff; }
+
+  .units-toggle {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 50px;
+    padding: 4px;
+    display: flex;
+    gap: 2px;
+  }
+
+  .units-toggle button {
+    background: none;
+    border: none;
+    border-radius: 50px;
+    padding: 6px 14px;
+    color: var(--text-secondary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .units-toggle button.active {
+    background: rgba(255,255,255,0.15);
+    color: var(--text-primary);
+  }
+
+  /* Glass card base */
+  .card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--card-radius);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Hero / Current weather */
+  .hero-card {
+    padding: 2.5rem;
+    margin-bottom: 1.25rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.5rem;
+    align-items: center;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .city-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.8rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.3rem;
+  }
+
+  .city-meta {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .temp-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .temp-big {
+    font-family: 'DM Serif Display', serif;
+    font-size: 5.5rem;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+
+  .temp-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 0.8rem;
+  }
+
+  .feels-like { color: var(--text-secondary); font-size: 0.85rem; }
+  .temp-range { font-size: 0.95rem; font-weight: 500; }
+
+  .condition-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50px;
+    padding: 6px 14px;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+  }
+
+  .weather-icon-big {
+    text-align: center;
+  }
+
+  .weather-icon-big img {
+    width: 120px;
+    height: 120px;
+    filter: drop-shadow(0 0 20px rgba(96,184,255,0.4));
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  .stat-card {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.7rem;
+    line-height: 1;
+  }
+
+  .stat-unit { font-family: 'DM Sans', sans-serif; font-size: 1rem; opacity: 0.7; }
+
+  /* Sun times */
+  .sun-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    margin-top: 6px;
+    position: relative;
+    overflow: visible;
+  }
+  .sun-progress {
+    height: 100%;
+    background: linear-gradient(90deg, #f9a826, #ffd166);
+    border-radius: 3px;
+    position: relative;
+    transition: width 1s ease;
+  }
+  .sun-dot {
+    width: 10px;
+    height: 10px;
+    background: #ffd166;
+    border-radius: 50%;
+    position: absolute;
+    right: -5px;
+    top: -3.5px;
+    box-shadow: 0 0 8px #ffd166;
+  }
+
+  /* AQI */
+  .aqi-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+  }
+
+  /* Forecast row */
+  .forecast-card {
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.5s 0.2s ease both;
+  }
+
+  .section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    margin-bottom: 1.25rem;
+  }
+
+  .forecast-list {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+  }
+
+  .forecast-day {
+    text-align: center;
+    padding: 1rem 0.5rem;
+    border-radius: 14px;
+    transition: background 0.2s;
+    cursor: default;
+  }
+
+  .forecast-day:hover { background: rgba(255,255,255,0.07); }
+  .forecast-day.today { background: rgba(96,184,255,0.12); border: 1px solid rgba(96,184,255,0.25); }
+
+  .f-day-name { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .f-icon img { width: 44px; height: 44px; }
+  .f-desc { font-size: 0.7rem; color: var(--text-secondary); margin: 4px 0 8px; }
+  .f-temps { font-size: 0.92rem; font-weight: 500; }
+  .f-temps .low { color: var(--text-secondary); font-weight: 400; margin-left: 4px; }
+  .f-pop { font-size: 0.72rem; color: #60b8ff; margin-top: 4px; }
+
+  /* Loading & error */
+  .loading {
+    text-align: center;
+    padding: 5rem 2rem;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-card {
+    padding: 2rem;
+    text-align: center;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .error-card .err-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .error-card p { color: var(--text-secondary); margin-top: 0.5rem; }
+
+  .welcome {
+    text-align: center;
+    padding: 5rem 2rem;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .welcome h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .welcome p { color: var(--text-secondary); margin-bottom: 2rem; }
+
+  .suggestions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .suggestion-btn {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 50px;
+    padding: 8px 18px;
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .suggestion-btn:hover { background: rgba(255,255,255,0.15); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .hero-card { grid-template-columns: 1fr; }
+    .weather-icon-big { display: none; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .forecast-list { grid-template-columns: repeat(3, 1fr); }
+    .forecast-day:nth-child(n+4) { display: none; }
+    header { flex-wrap: wrap; gap: 12px; }
+    input[type="text"] { width: 160px; }
+    input[type="text"]:focus { width: 180px; }
+    .city-name { font-size: 2rem; }
+    .temp-big { font-size: 4rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">sk<span>ie</span>s</div>
+    <div class="search-row">
+      <div class="search-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" id="cityInput" placeholder="Search city…" autocomplete="off">
+      </div>
+      <button class="btn primary" onclick="searchWeather()">Search</button>
+      <button class="btn" onclick="getLocation()">📍 My location</button>
+      <div class="units-toggle">
+        <button id="btnC" class="active" onclick="switchUnits('metric')">°C</button>
+        <button id="btnF" onclick="switchUnits('imperial')">°F</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="content">
+    <div class="welcome">
+      <h2>What's the weather like?</h2>
+      <p>Search for any city or use your current location.</p>
+      <div class="suggestions">
+        <button class="suggestion-btn" onclick="quickSearch('London')">🇬🇧 London</button>
+        <button class="suggestion-btn" onclick="quickSearch('Tokyo')">🇯🇵 Tokyo</button>
+        <button class="suggestion-btn" onclick="quickSearch('New York')">🇺🇸 New York</button>
+        <button class="suggestion-btn" onclick="quickSearch('Sydney')">🇦🇺 Sydney</button>
+        <button class="suggestion-btn" onclick="quickSearch('Paris')">🇫🇷 Paris</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentUnits = 'metric';
+  let lastCity = '';
+  let lastLat = null, lastLon = null;
+
+  const skyThemes = {
+    Clear:        'linear-gradient(160deg, #0a1f3a 0%, #1a3f6e 50%, #2d6fa8 70%, #4d94c9 100%)',
+    Clouds:       'linear-gradient(160deg, #2a2f3f 0%, #3d4558 50%, #545f78 100%)',
+    Rain:         'linear-gradient(160deg, #1a2030 0%, #252d42 50%, #303d58 100%)',
+    Drizzle:      'linear-gradient(160deg, #1a2030 0%, #252d42 50%, #303d58 100%)',
+    Thunderstorm: 'linear-gradient(160deg, #0e1520 0%, #181f30 50%, #222d45 100%)',
+    Snow:         'linear-gradient(160deg, #2a3040 0%, #3a4255 50%, #4a5570 100%)',
+    Mist:         'linear-gradient(160deg, #252a35 0%, #35404f 50%, #455060 100%)',
+    Fog:          'linear-gradient(160deg, #252a35 0%, #35404f 50%, #455060 100%)',
+    Haze:         'linear-gradient(160deg, #2a2a35 0%, #3d3a4a 50%, #504555 100%)',
+  };
+
+  function setSkyTheme(main) {
+    document.body.style.background = skyThemes[main] || skyThemes['Clear'];
+  }
+
+  function aqiColor(index) {
+    return ['', '#4caf50', '#8bc34a', '#ffeb3b', '#ff9800', '#f44336'][index] || '#888';
+  }
+
+  async function fetchWeather(params) {
+    const content = document.getElementById('content');
+    content.innerHTML = `<div class="loading"><div class="spinner"></div><p style="color:rgba(255,255,255,0.6)">Fetching weather…</p></div>`;
+
+    try {
+      const qs = new URLSearchParams({ ...params, units: currentUnits });
+      const res = await fetch('/api/weather?' + qs);
+      const data = await res.json();
+
+      if (!res.ok) {
+        content.innerHTML = `<div class="card error-card"><div class="err-icon">⚠️</div><h3>${data.error}</h3><p>Try a different city name.</p></div>`;
+        return;
+      }
+
+      renderWeather(data);
+    } catch (e) {
+      content.innerHTML = `<div class="card error-card"><div class="err-icon">🌐</div><h3>Connection error</h3><p>Make sure the Flask server is running.</p></div>`;
+    }
+  }
+
+  function renderWeather(d) {
+    setSkyTheme(d.current.main);
+
+    const now = new Date();
+    const sunrise = d.current.sunrise.split(':').map(Number);
+    const sunset = d.current.sunset.split(':').map(Number);
+    const totalMins = (sunset[0]*60+sunset[1]) - (sunrise[0]*60+sunrise[1]);
+    const nowMins = now.getHours()*60 + now.getMinutes() - (sunrise[0]*60+sunrise[1]);
+    const sunPct = Math.max(0, Math.min(100, (nowMins / totalMins) * 100));
+
+    const aqiColor_ = aqiColor(d.aqi.index);
+    const iconUrl = d.current.icon ? `https://openweathermap.org/img/wn/${d.current.icon}@2x.png` : '';
+
+    const forecastHTML = d.forecast.map((f, i) => `
+      <div class="forecast-day ${i===0?'today':''}">
+        <div class="f-day-name">${i===0?'Today':f.date.split(' ')[0]}</div>
+        <div class="f-icon"><img src="https://openweathermap.org/img/wn/${f.icon}@2x.png" alt="${f.description}"></div>
+        <div class="f-desc">${f.description}</div>
+        <div class="f-temps">${f.temp_max}°<span class="low">${f.temp_min}°</span></div>
+        ${f.pop > 0 ? `<div class="f-pop">💧 ${f.pop}%</div>` : ''}
+      </div>
+    `).join('');
+
+    const windDir = ['N','NE','E','SE','S','SW','W','NW'][Math.round(d.current.wind_deg / 45) % 8];
+
+    document.getElementById('content').innerHTML = `
+      <div class="card hero-card">
+        <div>
+          <div class="city-name">${d.city}</div>
+          <div class="city-meta">
+            <span>${d.country}</span>
+            ${d.country ? '<span style="opacity:0.3">·</span>' : ''}
+            <span>${new Date().toLocaleDateString('en', {weekday:'long', day:'numeric', month:'long'})}</span>
+          </div>
+          <div class="temp-row">
+            <div class="temp-big">${d.current.temp}<span style="font-size:3rem">°</span></div>
+            <div class="temp-details">
+              <div class="feels-like">Feels like ${d.current.feels_like}${d.unit_symbol}</div>
+              <div class="temp-range">↑${d.current.temp_max}° ↓${d.current.temp_min}°</div>
+            </div>
+          </div>
+          <div class="condition-badge">
+            <img src="${iconUrl}" width="28" height="28" alt="">
+            ${d.current.description}
+          </div>
+        </div>
+        <div class="weather-icon-big">
+          <img src="${iconUrl}" alt="${d.current.description}">
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="card stat-card">
+          <div class="stat-label">💧 Humidity</div>
+          <div class="stat-value">${d.current.humidity}<span class="stat-unit">%</span></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">💨 Wind</div>
+          <div class="stat-value">${d.current.wind_speed}<span class="stat-unit"> ${d.speed_unit}</span></div>
+          <div style="font-size:0.8rem;color:var(--text-secondary)">${windDir}</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">👁 Visibility</div>
+          <div class="stat-value">${d.current.visibility}<span class="stat-unit"> km</span></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">🌡 Pressure</div>
+          <div class="stat-value">${d.current.pressure}<span class="stat-unit"> hPa</span></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">🌅 Sunrise</div>
+          <div class="stat-value" style="font-size:1.4rem">${d.current.sunrise}</div>
+          <div class="sun-bar"><div class="sun-progress" style="width:${sunPct}%"><div class="sun-dot"></div></div></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">🌇 Sunset</div>
+          <div class="stat-value" style="font-size:1.4rem">${d.current.sunset}</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">☁️ Cloud Cover</div>
+          <div class="stat-value">${d.current.clouds}<span class="stat-unit">%</span></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">🌬 Air Quality</div>
+          <div class="stat-value" style="font-size:1.3rem">
+            <span class="aqi-dot" style="background:${aqiColor_}"></span>
+            ${d.aqi.label}
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-secondary)">AQI ${d.aqi.index || '—'}</div>
+        </div>
+      </div>
+
+      <div class="card forecast-card">
+        <div class="section-title">5-day forecast</div>
+        <div class="forecast-list">${forecastHTML}</div>
+      </div>
+    `;
+  }
+
+  function searchWeather() {
+    const city = document.getElementById('cityInput').value.trim();
+    if (!city) return;
+    lastCity = city;
+    lastLat = null; lastLon = null;
+    fetchWeather({ city });
+  }
+
+  function quickSearch(city) {
+    document.getElementById('cityInput').value = city;
+    lastCity = city;
+    lastLat = null; lastLon = null;
+    fetchWeather({ city });
+  }
+
+  function getLocation() {
+    if (!navigator.geolocation) return alert('Geolocation not supported');
+    navigator.geolocation.getCurrentPosition(pos => {
+      lastLat = pos.coords.latitude;
+      lastLon = pos.coords.longitude;
+      lastCity = '';
+      fetchWeather({ lat: lastLat, lon: lastLon });
+    }, () => alert('Could not get your location'));
+  }
+
+  function switchUnits(units) {
+    if (currentUnits === units) return;
+    currentUnits = units;
+    document.getElementById('btnC').classList.toggle('active', units === 'metric');
+    document.getElementById('btnF').classList.toggle('active', units === 'imperial');
+    if (lastCity) fetchWeather({ city: lastCity });
+    else if (lastLat) fetchWeather({ lat: lastLat, lon: lastLon });
+  }
+
+  document.getElementById('cityInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchWeather();
+  });
+</script>
+</body>
+</html>
